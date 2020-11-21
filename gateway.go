@@ -1,14 +1,15 @@
-package main
+package disgopher
 
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 const (
-	gatewayURL = "wss://gateway.discord.gg?v=8"
+	gatewayURL = "wss://gateway.discord.gg"
 
 	opcodeDispatch            = 0
 	opcodeHeartbeat           = 1
@@ -23,68 +24,101 @@ const (
 	opcodeHeartbeatAck        = 11
 )
 
-//Gateway ...
-type Gateway struct {
+type gateway struct {
+	State             clientState
+	ContinueBeating   bool
 	HeartbeatInterval float64
+	HearteatsSent     int
+	HeartbeatsAcked   int
+	LastSent          time.Time
+	LastAcked         time.Time
 	Sequence          int
 	WebSocket         *websocket.Conn
 	Token             string
 }
 
-//GatewayResponse ...
 type gatewayResponse struct {
-	Name     interface{} `json:"t"`
-	Sequence interface{} `json:"s"`
-	Opcode   interface{} `json:"op"`
-	Data     interface{} `json:"d"`
+	Name     interface{}            `json:"t"`
+	Sequence interface{}            `json:"s"`
+	Opcode   interface{}            `json:"op"`
+	Data     map[string]interface{} `json:"d"`
 }
 
-//connect ...
-func (gateway *Gateway) connect(token string) {
+func (gateway *gateway) connect(token string) {
 	gateway.Token = token
 	conn, _, err := websocket.DefaultDialer.Dial(gatewayURL, nil)
 	gateway.WebSocket = conn
 	if err != nil {
-		fmt.Printf("FUCK ITS BROKEN")
+		panic(err)
 	}
 }
 
-//describe ...
-func describe(i interface{}) {
-	fmt.Printf("(%v, %T)\n", i, i)
-}
-
-//listen ...
-func (gateway *Gateway) listen() {
+func (gateway *gateway) listen() {
 	for {
 		_, message, err := gateway.WebSocket.ReadMessage()
 		if err != nil {
-			fmt.Printf("FUCK I BROKE IT")
+			panic(err)
 		}
 		resp := new(gatewayResponse)
 		json.Unmarshal(message, resp)
 		if resp.Sequence != nil {
-			gateway.Sequence = resp.Sequence.(int)
+			gateway.Sequence = int(resp.Sequence.(float64))
 		}
-		describe(resp.Opcode)
-		if resp.Opcode.(float64) == opcodeHello {
-			gateway.HeartbeatInterval = resp.Data.(map[interface{}]interface{})["heartbeat_interval"].(float64)
-			gateway.sendIdentify()
+		if opcode, ok := resp.Opcode.(float64); ok {
+			switch opcode {
+			case opcodeDispatch:
+				gateway.State.dispatch(resp.Name.(string), resp.Data)
+			case opcodeHello:
+				gateway.HeartbeatInterval = resp.Data["heartbeat_interval"].(float64)
+				gateway.sendIdentify()
+				if !gateway.ContinueBeating {
+					go gateway.startBeating()
+				}
+			case opcodeHeartbeat:
+				gateway.sendHeartbeat()
+			case opcodeHeartbeatAck:
+				gateway.HeartbeatsAcked++
+				gateway.LastAcked = time.Now()
+			default:
+				fmt.Printf("unknown opcode? (%v %T)", opcode, opcode)
+			}
 		}
 	}
 }
 
-func (gateway *Gateway) sendIdentify() {
-	payload := fmt.Sprintf("{\"op\":null,\"d\":{\"token\":%s,\"properties\": {\"$os\":\"Windows\",\"$browser\":\"Hinux\",\"$device\":\"Hinux\"}}", gateway.Token)
-	fmt.Printf(payload)
+func (gateway *gateway) startBeating() {
+	gateway.ContinueBeating = true
+	Interval := time.Duration(gateway.HeartbeatInterval) * time.Millisecond
+	for gateway.ContinueBeating {
+		gateway.sendHeartbeat()
+		gateway.HearteatsSent++
+		gateway.LastSent = time.Now()
+		time.Sleep(Interval)
+	}
 }
 
-func (gateway *Gateway) start() {
-	gateway.connect("fhoiasdfhoiasdhf")
+func (gateway *gateway) sendIdentify() {
+	payload := fmt.Sprintf("{\"op\":%v,\"d\":{\"token\":\"%s\",\"properties\":{\"$os\":\"Windows\",\"$browser\":\"Hinux\",\"$device\":\"Hinux\"}}}", opcodeIdentify, gateway.Token)
+	err := gateway.WebSocket.WriteMessage(websocket.TextMessage, []byte(payload))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (gateway *gateway) sendHeartbeat() {
+	payload := fmt.Sprintf("{\"op\":%v,\"d\":null}", opcodeHeartbeat)
+	err := gateway.WebSocket.WriteMessage(websocket.TextMessage, []byte(payload))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (gateway *gateway) start(token string) {
+	gateway.connect(token)
 	gateway.listen()
 }
 
-func main() {
-	gateway := Gateway{}
-	gateway.start()
+//Latency ...
+func (gateway *gateway) Latency() time.Duration {
+	return gateway.LastAcked.Sub(gateway.LastSent)
 }
