@@ -1,109 +1,89 @@
 package disgopher
 
+import (
+	"encoding/json"
+)
+
 //Guild ...
 type Guild struct {
-	Large                       bool
-	PreferredLocale             string
-	MaxVideoChannelUsers        int
-	OwnerID                     string
-	AFKTimeout                  int
-	PremiumSubscriptionCount    int
-	Name                        string
-	Region                      string
-	PremiumTier                 int
-	MemberCount                 int
-	PublicUpdatesChannelID      string
-	DefaultMessageNotifications int
-	SystemChannelFlags          int
-	ExplicitContentFilter       int
-	Lazy                        bool
-	VerificationLevel           int
-	SystemChannelID             string
-	ID                          string
-	Unavailable                 bool
-	MFALevel                    int
+	state        *clientState
+	Description  string `json:"description"`
+	MFALevel     int    `json:"mfa_level"`
+	Region       string `json:"region"`
+	AFKChannelID string `json:"afk_channel_id"`
+	//VoiceStates []VoiceState `json:"voice_states"`
+	//Presences []Presence `json:"presences"`
+	AFKTimeout      int      `json:"afk_timeout"`
+	MemberCount     int      `json:"member_count"`
+	Icon            string   `json:"icon"`
+	Splash          string   `json:"splash"`
+	Features        []string `json:"features"`
+	VaniryURLCode   string   `json:"vanity_url_code"`
+	SystemChannelID string   `json:"system_channel_id"`
+	//Roles []Role `json:"roles"`
+	//Emojis []Emoji `json:"emojis"`
+	JoinedAt                    string `json:"joined_at"`
+	Name                        string `json:"name"`
+	DefaultMessageNotifications int    `json:"default_message_notifications"`
+	OwnerID                     string `json:"owner_id"`
+	DiscoverySplash             string `json:"discovery_splash"`
+	PremiumSubscriptionCount    int    `json:"premium_subscription_count"`
+	ExplicitContentFilter       int    `json:"explicit_content_filter"`
+	RulesChannelID              string `json:"rules_channel_id"`
+	ApplicationID               string `json:"application_id"`
+	MaxMembers                  int    `json:"max_members"`
+	Unavailable                 bool   `json:"unavailable"`
+	Large                       bool   `json:"large"`
+	Lazy                        bool   `json:"lazy"`
+	PublicUpdatesChannelID      string `json:"public_updates_channel_id"`
+	PreferredLocale             string `json:"preferred_locale"`
+	MaxVideoChannelUsers        int    `json:"max_video_channel_users"`
+	PremiumTier                 int    `json:"premium_tier"`
+	Banner                      string `json:"banner"`
+	VerificationLevel           int    `json:"verification_level"`
+	SystemChannelFlags          int    `json:"system_channel_flags"`
+	ID                          string `json:"id"`
+	TextChannels                map[string]*GuildTextChannel
+	//Members []GuildMember `json:"members"`
 }
 
-//NewGuild ...
-func newGuild(state *clientState, data map[string]interface{}) {
-	guild := Guild{}
-	large := data["large"]
-	preferredLocale := data["preferred_locale"]
-	maxVideoChannelUsers := data["max_video_channel_users"]
-	//afkChannelID := data["afk_channel_id"]
-	ownerID := data["owner_id"]
-	afkTimeout := data["afk_timeout"]
-	premiumSubscriptionCount := data["premium_subscription_count"]
-	name := data["name"]
-	region := data["region"]
-	memberCount := data["member_count"]
-	publicUpdatesChannelID := data["public_updates_channel_id"]
-	defaultMessageNotifications := data["default_message_notifications"]
-	systemChannelFlags := data["system_channel_flags"]
-	explicitContentFilter := data["explicit_content_filter"]
-	lazy := data["lazy"]
-	//joinedAt := data["joined_at"]
-	verificationLevel := data["verification_level"]
-	systemChannelID := data["system_channel_id"]
-	id := data["id"]
-	unavailable := data["unavailable"]
-	mfaLevel := data["mfa_level"]
-	if large != nil {
-		guild.Large = large.(bool)
+//ToJSON ...
+func (guild *Guild) ToJSON() ([]byte, error) {
+	return json.Marshal(*guild)
+}
+
+func channelFactory(state *clientState, guild *Guild, data []byte) map[string]*GuildTextChannel {
+	structure := struct {
+		Channels []map[string]interface{} `json:"channels"`
+	}{}
+	err := json.Unmarshal(data, &structure)
+	if err != nil {
+		panic(err)
 	}
-	if preferredLocale != nil {
-		guild.PreferredLocale = preferredLocale.(string)
+	guildTextChannels := make(map[string]*GuildTextChannel)
+	for index := range structure.Channels {
+		channel := structure.Channels[index]
+		channelType := int(channel["type"].(float64))
+		if channelType == ChannelType.GuildText {
+			data, jsonerr := json.Marshal(channel)
+			if jsonerr != nil {
+				panic(err)
+			}
+			channel := newGuildTextChannel(state, guild, data)
+			guildTextChannels[channel.ID] = channel
+		}
 	}
-	if maxVideoChannelUsers != nil {
-		guild.MaxVideoChannelUsers = int(maxVideoChannelUsers.(float64))
+	return guildTextChannels
+}
+
+func newGuild(state *clientState, data []byte) *Guild {
+	guild := new(Guild)
+	guild.state = state
+	err := json.Unmarshal(data, guild)
+	if err != nil {
+		panic(err)
 	}
-	if ownerID != nil {
-		guild.OwnerID = ownerID.(string)
-	}
-	if afkTimeout != nil {
-		guild.AFKTimeout = int(afkTimeout.(float64))
-	}
-	if premiumSubscriptionCount != nil {
-		guild.PremiumSubscriptionCount = int(premiumSubscriptionCount.(float64))
-	}
-	if name != nil {
-		guild.Name = name.(string)
-	}
-	if region != nil {
-		guild.Region = region.(string)
-	}
-	if memberCount != nil {
-		guild.MemberCount = int(memberCount.(float64))
-	}
-	if publicUpdatesChannelID != nil {
-		guild.PublicUpdatesChannelID = publicUpdatesChannelID.(string)
-	}
-	if defaultMessageNotifications != nil {
-		guild.DefaultMessageNotifications = int(defaultMessageNotifications.(float64))
-	}
-	if systemChannelFlags != nil {
-		guild.SystemChannelFlags = int(systemChannelFlags.(float64))
-	}
-	if explicitContentFilter != nil {
-		guild.ExplicitContentFilter = int(explicitContentFilter.(float64))
-	}
-	if lazy != nil {
-		guild.Lazy = lazy.(bool)
-	}
-	if verificationLevel != nil {
-		guild.VerificationLevel = int(verificationLevel.(float64))
-	}
-	if systemChannelID != nil {
-		guild.SystemChannelID = systemChannelID.(string)
-	}
-	if id != nil {
-		guild.ID = id.(string)
-	}
-	if unavailable != nil {
-		guild.Unavailable = unavailable.(bool)
-	}
-	if mfaLevel != nil {
-		guild.MFALevel = int(mfaLevel.(float64))
-	}
+	guild.TextChannels = channelFactory(state, guild, data)
 	state.Guilds[guild.ID] = guild
+	return guild
 }
