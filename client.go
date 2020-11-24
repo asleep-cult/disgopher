@@ -4,8 +4,8 @@ package disgopher
 type Client struct {
 	Token string
 	Bot   bool
-	Ws    gateway
-	State clientState
+	Ws    *gateway
+	State *clientState
 }
 
 //Start ...
@@ -15,9 +15,8 @@ func (client *Client) Start(token string) {
 
 //NewClient ...
 func NewClient() Client {
-	gateway := gateway{}
-	client := Client{Ws: gateway}
-	client.State.Guilds = make(map[string]Guild)
-	gateway.State = client.State
+	state := &clientState{Guilds: make(map[string]*Guild)}
+	gateway := newGateway(state)
+	client := Client{Ws: gateway, State: state}
 	return client
 }

@@ -24,24 +24,57 @@ const (
 	opcodeHeartbeatAck        = 11
 )
 
-type gateway struct {
-	State             clientState
-	ContinueBeating   bool
-	HeartbeatInterval float64
-	HearteatsSent     int
-	HeartbeatsAcked   int
-	LastSent          time.Time
-	LastAcked         time.Time
-	Sequence          int
-	WebSocket         *websocket.Conn
-	Token             string
+type heartbeatRequest struct {
+	Opcode int         `json:"op"`
+	Data   interface{} `json:"d"`
 }
 
-type gatewayResponse struct {
-	Name     interface{}            `json:"t"`
-	Sequence interface{}            `json:"s"`
-	Opcode   interface{}            `json:"op"`
-	Data     map[string]interface{} `json:"d"`
+type identifyProperties struct {
+	OS      string `json:"$os"`
+	Browser string `json:"$browser"`
+	Device  string `json:"$device"`
+}
+
+type identifyData struct {
+	Token      string             `json:"token"`
+	Properties identifyProperties `json:"properties"`
+}
+
+type identifyRequest struct {
+	Opcode int          `json:"op"`
+	Data   identifyData `json:"d"`
+}
+
+type baseResponse struct {
+	Name     interface{} `json:"t"`
+	Sequence interface{} `json:"s"`
+	Opcode   interface{} `json:"op"`
+	Data     interface{} `json:"d"`
+}
+
+type helloResponse struct {
+	HelloData struct {
+		HeartbeatInterval float64 `json:"heartbeat_interval"`
+	} `json:"d"`
+}
+
+type gateway struct {
+	ContinueBeating bool
+
+	HearteatsSent   int
+	HeartbeatsAcked int
+	Sequence        int
+
+	Token string
+
+	HeartbeatPayload []byte
+
+	HeartbeatInterval time.Duration
+	LastSent          time.Time
+	LastAcked         time.Time
+
+	State     *clientState
+	WebSocket *websocket.Conn
 }
 
 func (gateway *gateway) connect(token string) {
@@ -59,7 +92,7 @@ func (gateway *gateway) listen() {
 		if err != nil {
 			panic(err)
 		}
-		resp := new(gatewayResponse)
+		resp := new(baseResponse)
 		json.Unmarshal(message, resp)
 		if resp.Sequence != nil {
 			gateway.Sequence = int(resp.Sequence.(float64))
@@ -67,9 +100,15 @@ func (gateway *gateway) listen() {
 		if opcode, ok := resp.Opcode.(float64); ok {
 			switch opcode {
 			case opcodeDispatch:
-				gateway.State.dispatch(resp.Name.(string), resp.Data)
+				data, jsonerr := json.Marshal(resp.Data)
+				if jsonerr != nil {
+					panic(jsonerr)
+				}
+				gateway.State.dispatch(resp.Name.(string), data)
 			case opcodeHello:
-				gateway.HeartbeatInterval = resp.Data["heartbeat_interval"].(float64)
+				helloResp := new(helloResponse)
+				json.Unmarshal(message, helloResp)
+				gateway.HeartbeatInterval = time.Duration(helloResp.HelloData.HeartbeatInterval) * time.Millisecond
 				gateway.sendIdentify()
 				if !gateway.ContinueBeating {
 					go gateway.startBeating()
@@ -88,17 +127,22 @@ func (gateway *gateway) listen() {
 
 func (gateway *gateway) startBeating() {
 	gateway.ContinueBeating = true
-	Interval := time.Duration(gateway.HeartbeatInterval) * time.Millisecond
 	for gateway.ContinueBeating {
 		gateway.sendHeartbeat()
 		gateway.HearteatsSent++
 		gateway.LastSent = time.Now()
-		time.Sleep(Interval)
+		time.Sleep(gateway.HeartbeatInterval)
 	}
 }
 
 func (gateway *gateway) sendIdentify() {
-	payload := fmt.Sprintf("{\"op\":%v,\"d\":{\"token\":\"%s\",\"properties\":{\"$os\":\"Windows\",\"$browser\":\"Hinux\",\"$device\":\"Hinux\"}}}", opcodeIdentify, gateway.Token)
+	properties := identifyProperties{OS: "Windows", Browser: "Hinux", Device: "Hinux"}
+	data := identifyData{Token: gateway.Token, Properties: properties}
+	identifyReq := identifyRequest{Opcode: opcodeIdentify, Data: data}
+	payload, jsonerr := json.Marshal(identifyReq)
+	if jsonerr != nil {
+		panic(jsonerr)
+	}
 	err := gateway.WebSocket.WriteMessage(websocket.TextMessage, []byte(payload))
 	if err != nil {
 		panic(err)
@@ -106,8 +150,7 @@ func (gateway *gateway) sendIdentify() {
 }
 
 func (gateway *gateway) sendHeartbeat() {
-	payload := fmt.Sprintf("{\"op\":%v,\"d\":null}", opcodeHeartbeat)
-	err := gateway.WebSocket.WriteMessage(websocket.TextMessage, []byte(payload))
+	err := gateway.WebSocket.WriteMessage(websocket.TextMessage, gateway.HeartbeatPayload)
 	if err != nil {
 		panic(err)
 	}
@@ -121,4 +164,13 @@ func (gateway *gateway) start(token string) {
 //Latency ...
 func (gateway *gateway) Latency() time.Duration {
 	return gateway.LastAcked.Sub(gateway.LastSent)
+}
+
+func newGateway(state *clientState) *gateway {
+	data, err := json.Marshal(heartbeatRequest{Opcode: opcodeHeartbeat, Data: nil})
+	if err != nil {
+		panic(err)
+	}
+	gateway := gateway{State: state, HeartbeatPayload: data}
+	return &gateway
 }
