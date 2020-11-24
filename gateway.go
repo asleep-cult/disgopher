@@ -100,10 +100,7 @@ func (gateway *gateway) listen() {
 		if opcode, ok := resp.Opcode.(float64); ok {
 			switch opcode {
 			case opcodeDispatch:
-				data, jsonerr := json.Marshal(resp.Data)
-				if jsonerr != nil {
-					panic(jsonerr)
-				}
+				data, _ := json.Marshal(resp.Data)
 				gateway.State.dispatch(resp.Name.(string), data)
 			case opcodeHello:
 				helloResp := new(helloResponse)
@@ -167,10 +164,7 @@ func (gateway *gateway) Latency() time.Duration {
 }
 
 func newGateway(state *clientState) *gateway {
-	data, err := json.Marshal(heartbeatRequest{Opcode: opcodeHeartbeat, Data: nil})
-	if err != nil {
-		panic(err)
-	}
+	data, _ := json.Marshal(heartbeatRequest{Opcode: opcodeHeartbeat, Data: nil})
 	gateway := gateway{State: state, HeartbeatPayload: data}
 	return &gateway
 }

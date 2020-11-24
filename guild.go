@@ -44,37 +44,33 @@ type Guild struct {
 	SystemChannelFlags          int    `json:"system_channel_flags"`
 	ID                          string `json:"id"`
 	TextChannels                map[string]*GuildTextChannel
+	VoiceChannels               map[string]*GuildVoiceChannel
+
 	//Members []GuildMember `json:"members"`
 }
 
-//ToJSON ...
-func (guild *Guild) ToJSON() ([]byte, error) {
-	return json.Marshal(*guild)
+type guildFactoryPrivate struct {
+	Channels []interface{} `json:"channels"`
 }
 
-func channelFactory(guild *Guild, data []byte) {
-	var channels []interface{}
-	channelStruct := struct {
-		Channels []interface{} `json:"channels"`
-	}{channels}
-	json.Unmarshal(data, &channelStruct)
-	channels = channelStruct.Channels
-	for index := range channels {
-		channel := ChannelBase{state: guild.state}
-		channel.data, _ = json.Marshal(channels[index])
+func channelFactory(guild *Guild, private *guildFactoryPrivate) {
+	for index := range private.Channels {
+		data, _ := json.Marshal(private.Channels[index])
+		channel := newBaseChannel(guild.state, data)
 		switch newChannel := channel.upgrade(guild).(type) {
 		case *GuildTextChannel:
 			guild.TextChannels[newChannel.ID] = newChannel
+		case *GuildVoiceChannel:
+			guild.VoiceChannels[newChannel.ID] = newChannel
 		}
 	}
 }
 
 func newGuild(state *clientState, data []byte) *Guild {
-	guild := &Guild{state: state, TextChannels: make(map[string]*GuildTextChannel)}
-	err := json.Unmarshal(data, guild)
-	if err != nil {
-		panic(err)
-	}
-	channelFactory(guild, data)
+	guild := &Guild{state: state, TextChannels: make(map[string]*GuildTextChannel), VoiceChannels: make(map[string]*GuildVoiceChannel)}
+	json.Unmarshal(data, guild)
+	private := &guildFactoryPrivate{}
+	json.Unmarshal(data, private)
+	channelFactory(guild, private)
 	return guild
 }
