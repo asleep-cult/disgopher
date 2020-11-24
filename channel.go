@@ -26,10 +26,28 @@ type ChannelBase struct {
 func (channel *ChannelBase) upgrade(args ...interface{}) interface{} {
 	switch channel.Type {
 	case ChannelType.GuildText:
-		return newGuildTextChannel(channel, args[0].(*Guild), channel.data)
+		if len(args) > 0 {
+			if guild, ok := args[0].(*Guild); ok {
+				return newGuildTextChannel(channel, guild, channel.data)
+			}
+		}
+		return newGuildTextChannel(channel, nil, channel.data)
+	case ChannelType.GuildVoice:
+		if len(args) > 0 {
+			if guild, ok := args[0].(*Guild); ok {
+				return newGuildVoiceChannel(channel, guild, channel.data)
+			}
+		}
+		return newGuildVoiceChannel(channel, nil, channel.data)
 	default:
 		return nil
 	}
+}
+
+func newBaseChannel(state *clientState, data []byte) *ChannelBase {
+	channel := &ChannelBase{state: state, data: data}
+	json.Unmarshal(data, channel)
+	return channel
 }
 
 //GuildTextChannel ...
@@ -52,16 +70,33 @@ type GuildTextChannel struct {
 func newGuildTextChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *GuildTextChannel {
 	channel := &GuildTextChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type}
 	json.Unmarshal(data, channel)
-	if guild == nil {
-		if channel.GuildID != "" {
-			gotGuild := channel.state.Guilds[channel.GuildID]
-			if gotGuild != nil {
-				channel.Guild = gotGuild
-			}
-		}
-	} else {
-		channel.Guild = guild
+	if channel.Guild == nil && channel.GuildID != "" {
+		channel.Guild = channel.state.Guilds[channel.GuildID]
 	}
-	channel.Guild = guild
+	return channel
+}
+
+//GuildVoiceChannel ...
+type GuildVoiceChannel struct {
+	state    *clientState
+	Guild    *Guild
+	Bitrate  int    `json:"bitrate"`
+	GuildID  string `json:"guild_id"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	NSFW     bool   `json:"nsfw"`
+	ParentID string `json:"parent_id"`
+	//PermissionOverwrites []PermissionOverwrite
+	Position  int `json:"position"`
+	Type      int
+	UserLimit int `json:"user_limit"`
+}
+
+func newGuildVoiceChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *GuildVoiceChannel {
+	channel := &GuildVoiceChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type, Guild: guild}
+	json.Unmarshal(data, channel)
+	if channel.Guild == nil && channel.GuildID != "" {
+		channel.Guild = channel.state.Guilds[channel.GuildID]
+	}
 	return channel
 }
