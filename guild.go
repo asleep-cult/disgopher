@@ -52,38 +52,29 @@ func (guild *Guild) ToJSON() ([]byte, error) {
 	return json.Marshal(*guild)
 }
 
-func channelFactory(state *clientState, guild *Guild, data []byte) map[string]*GuildTextChannel {
-	structure := struct {
-		Channels []map[string]interface{} `json:"channels"`
-	}{}
-	err := json.Unmarshal(data, &structure)
-	if err != nil {
-		panic(err)
-	}
-	guildTextChannels := make(map[string]*GuildTextChannel)
-	for index := range structure.Channels {
-		channel := structure.Channels[index]
-		channelType := int(channel["type"].(float64))
-		if channelType == ChannelType.GuildText {
-			data, jsonerr := json.Marshal(channel)
-			if jsonerr != nil {
-				panic(err)
-			}
-			channel := newGuildTextChannel(state, guild, data)
-			guildTextChannels[channel.ID] = channel
+func channelFactory(guild *Guild, data []byte) {
+	var channels []interface{}
+	channelStruct := struct {
+		Channels []interface{} `json:"channels"`
+	}{channels}
+	json.Unmarshal(data, &channelStruct)
+	channels = channelStruct.Channels
+	for index := range channels {
+		channel := ChannelBase{state: guild.state}
+		channel.data, _ = json.Marshal(channels[index])
+		switch newChannel := channel.upgrade(guild).(type) {
+		case *GuildTextChannel:
+			guild.TextChannels[newChannel.ID] = newChannel
 		}
 	}
-	return guildTextChannels
 }
 
 func newGuild(state *clientState, data []byte) *Guild {
-	guild := new(Guild)
-	guild.state = state
+	guild := &Guild{state: state, TextChannels: make(map[string]*GuildTextChannel)}
 	err := json.Unmarshal(data, guild)
 	if err != nil {
 		panic(err)
 	}
-	guild.TextChannels = channelFactory(state, guild, data)
-	state.Guilds[guild.ID] = guild
+	channelFactory(guild, data)
 	return guild
 }
