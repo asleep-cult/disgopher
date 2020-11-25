@@ -53,7 +53,7 @@ func newBaseChannel(state *clientState, data []byte) *ChannelBase {
 //GuildTextChannel ...
 type GuildTextChannel struct {
 	state    *clientState
-	Guild    *Guild
+	Guild    *Guild `json:"-"`
 	Type     int
 	Topic    string `json:"topic"`
 	Cooldown int    `json:"ratelimit_per_user"`
@@ -72,7 +72,7 @@ func newGuildTextChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *G
 	json.Unmarshal(data, channel)
 	if guild != nil {
 		channel.Guild = guild
-	} else if channel.GuildID != "" {
+	} else {
 		channel.Guild = channel.state.Guilds[channel.GuildID]
 	}
 	channel.state.GuildTextChannels[channel.ID] = channel
@@ -83,7 +83,7 @@ func newGuildTextChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *G
 //GuildVoiceChannel ...
 type GuildVoiceChannel struct {
 	state    *clientState
-	Guild    *Guild
+	Guild    *Guild `json:"-"`
 	Bitrate  int    `json:"bitrate"`
 	GuildID  string `json:"guild_id"`
 	ID       string `json:"id"`
@@ -101,7 +101,7 @@ func newGuildVoiceChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *
 	json.Unmarshal(data, channel)
 	if guild != nil {
 		channel.Guild = guild
-	} else if channel.GuildID != "" {
+	} else {
 		channel.Guild = channel.state.Guilds[channel.GuildID]
 	}
 	channel.state.GuildVoiceChannels[channel.ID] = channel
