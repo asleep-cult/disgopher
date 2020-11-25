@@ -20,7 +20,13 @@ func (client *Client) On(name string, function interface{}) {
 
 //NewClient ...
 func NewClient() Client {
-	state := &clientState{Guilds: make(map[string]*Guild), Events: make(map[string][]interface{})}
+	state := &clientState{
+		Guilds:             make(map[string]*Guild),
+		GuildTextChannels:  make(map[string]*GuildTextChannel),
+		GuildVoiceChannels: make(map[string]*GuildVoiceChannel),
+		Messages:           make(map[string]*Message),
+		Users:              make(map[string]*User),
+		Events:             make(map[string][]interface{})}
 	gateway := newGateway(state)
 	client := Client{Ws: gateway, State: state}
 	return client
