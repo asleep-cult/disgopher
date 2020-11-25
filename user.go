@@ -23,7 +23,6 @@ type User struct {
 func newUser(state *clientState, data []byte) *User {
 	user := &User{state: state}
 	json.Unmarshal(data, user)
-	//TODO: gotUser := state.Users[user.ID] if user != nil user.update(data)...
 	state.Users[user.ID] = user
 	return user
 }

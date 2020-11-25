@@ -45,12 +45,12 @@ type Guild struct {
 	ID                          string `json:"id"`
 	TextChannels                map[string]*GuildTextChannel
 	VoiceChannels               map[string]*GuildVoiceChannel
-
-	//Members []GuildMember `json:"members"`
+	Members                     map[string]*GuildMember
 }
 
 type guildFactoryPrivate struct {
 	Channels []interface{} `json:"channels"`
+	Members  []interface{} `json:"members"`
 }
 
 func channelFactory(guild *Guild, private *guildFactoryPrivate) {
@@ -60,12 +60,50 @@ func channelFactory(guild *Guild, private *guildFactoryPrivate) {
 	}
 }
 
+func memberFactory(guild *Guild, private *guildFactoryPrivate) {
+	for index := range private.Members {
+		data, _ := json.Marshal(private.Members[index])
+		newGuildMember(nil, guild, data)
+	}
+}
+
 func newGuild(state *clientState, data []byte) *Guild {
-	guild := &Guild{state: state, TextChannels: make(map[string]*GuildTextChannel), VoiceChannels: make(map[string]*GuildVoiceChannel)}
+	guild := &Guild{
+		state:         state,
+		TextChannels:  make(map[string]*GuildTextChannel),
+		VoiceChannels: make(map[string]*GuildVoiceChannel),
+		Members:       make(map[string]*GuildMember)}
 	json.Unmarshal(data, guild)
 	state.Guilds[guild.ID] = guild
 	private := new(guildFactoryPrivate)
 	json.Unmarshal(data, private)
 	channelFactory(guild, private)
+	memberFactory(guild, private)
 	return guild
+}
+
+//GuildMember ...
+type GuildMember struct {
+	state *clientState
+	Guild *Guild `json:"-"`
+	User  *User  `json:"user"`
+	Nick  string `json:"nick"`
+	//Roles []
+	JoinedAt     string `json:"joined_at"`
+	PremiumSince string `json:"premium_since"`
+	Deaf         bool   `json:"deaf"`
+	Mute         bool   `json:"mute"`
+}
+
+func newGuildMember(user *User, guild *Guild, data []byte) *GuildMember {
+	member := &GuildMember{state: guild.state, Guild: guild}
+	json.Unmarshal(data, member)
+	if user != nil {
+		member.User = user
+	} else if member.User != nil {
+		member.User.state = guild.state
+		guild.state.Users[member.User.ID] = member.User
+	}
+	guild.Members[member.User.ID] = member
+	return member
 }
