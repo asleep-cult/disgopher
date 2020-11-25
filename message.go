@@ -24,12 +24,12 @@ type Attachment struct {
 //Message ...
 type Message struct {
 	state           *clientState
-	Guild           *Guild            `json:"-"`
-	Channel         *GuildTextChannel `json:"-"`
-	Attachments     []Attachment      `json:"attachments"`
-	Author          *User             `json:"-"`
-	Content         string            `json:"content"`
-	EditedTimestamp string            `json:"edited_timestamp"`
+	Guild           *Guild       `json:"-"`
+	Channel         interface{}  `json:"-"`
+	Attachments     []Attachment `json:"attachments"`
+	Author          *User        `json:"-"`
+	Content         string       `json:"content"`
+	EditedTimestamp string       `json:"edited_timestamp"`
 	//Embeds []Embed
 	Flags           int          `json:"flags"`
 	ID              string       `json:"id"`
@@ -77,6 +77,8 @@ func newMessage(state *clientState, data []byte) *Message {
 	message := &Message{state: state}
 	json.Unmarshal(data, message)
 	message.Guild = state.Guilds[message.GuildID]
+	message.Channel = state.GuildTextChannels[message.ChannelID]
+	message.Guild = state.Guilds[message.GuildID]
 	private := new(messagePrivate)
 	json.Unmarshal(data, private)
 	if message.WebhookID == "" {
@@ -93,12 +95,6 @@ func newMessage(state *clientState, data []byte) *Message {
 			memberData, _ := json.Marshal(private.Member)
 			message.Member = newGuildMember(message.Author, message.Guild, memberData)
 		}
-	}
-	if message.ChannelID != "" {
-		message.Channel = state.GuildTextChannels[message.ChannelID]
-	}
-	if message.GuildID != "" {
-		message.Guild = state.Guilds[message.GuildID]
 	}
 	mentionedGuildTextChannelsFactory(message)
 	state.Messages[message.ID] = message
