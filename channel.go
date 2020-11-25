@@ -70,9 +70,13 @@ type GuildTextChannel struct {
 func newGuildTextChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *GuildTextChannel {
 	channel := &GuildTextChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type}
 	json.Unmarshal(data, channel)
-	if channel.Guild == nil && channel.GuildID != "" {
+	if guild != nil {
+		channel.Guild = guild
+	} else if channel.GuildID != "" {
 		channel.Guild = channel.state.Guilds[channel.GuildID]
 	}
+	channel.state.GuildTextChannels[channel.ID] = channel
+	channel.Guild.TextChannels[channel.ID] = channel
 	return channel
 }
 
@@ -93,10 +97,14 @@ type GuildVoiceChannel struct {
 }
 
 func newGuildVoiceChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *GuildVoiceChannel {
-	channel := &GuildVoiceChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type, Guild: guild}
+	channel := &GuildVoiceChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type}
 	json.Unmarshal(data, channel)
-	if channel.Guild == nil && channel.GuildID != "" {
+	if guild != nil {
+		channel.Guild = guild
+	} else if channel.GuildID != "" {
 		channel.Guild = channel.state.Guilds[channel.GuildID]
 	}
+	channel.state.GuildVoiceChannels[channel.ID] = channel
+	channel.Guild.VoiceChannels[channel.ID] = channel
 	return channel
 }

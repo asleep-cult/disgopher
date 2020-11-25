@@ -1,12 +1,13 @@
 package disgopher
 
-import "fmt"
-
 //ClientState ...
 type clientState struct {
-	Guilds            map[string]*Guild
-	GuildTextChannels map[string]*GuildTextChannel
-	Events            map[string][]interface{}
+	Guilds             map[string]*Guild
+	GuildTextChannels  map[string]*GuildTextChannel
+	GuildVoiceChannels map[string]*GuildVoiceChannel
+	Messages           map[string]*Message
+	Users              map[string]*User
+	Events             map[string][]interface{}
 }
 
 func (state *clientState) dispatch(name string, data []byte) {
@@ -18,17 +19,12 @@ func (state *clientState) dispatch(name string, data []byte) {
 			go state.Events["guild_create"][index].(func(GuildCreateEvent))(event)
 		}
 	case "CHANNEL_CREATE":
-		switch channel := newBaseChannel(state, data).upgrade().(type) {
-		case *GuildTextChannel:
-			fmt.Print(channel)
-			if channel.Guild != nil {
-				channel.Guild.TextChannels[channel.ID] = channel
-			}
-		case *GuildVoiceChannel:
-			fmt.Print(channel)
-			if channel.Guild != nil {
-				channel.Guild.VoiceChannels[channel.ID] = channel
-			}
+		newBaseChannel(state, data).upgrade()
+	case "MESSAGE_CREATE":
+		message := newMessage(state, data)
+		for index := range state.Events["message_create"] {
+			event := MessageCreateEvent{Message: message}
+			go state.Events["message_create"][index].(func(MessageCreateEvent))(event)
 		}
 	}
 }
@@ -40,5 +36,4 @@ func (state *clientState) registerEvent(name string, function interface{}) {
 		state.Events[name] = events
 	}
 	state.Events[name] = append(events, function)
-	fmt.Print(state.Events[name])
 }

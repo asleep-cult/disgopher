@@ -56,20 +56,15 @@ type guildFactoryPrivate struct {
 func channelFactory(guild *Guild, private *guildFactoryPrivate) {
 	for index := range private.Channels {
 		data, _ := json.Marshal(private.Channels[index])
-		channel := newBaseChannel(guild.state, data)
-		switch newChannel := channel.upgrade(guild).(type) {
-		case *GuildTextChannel:
-			guild.TextChannels[newChannel.ID] = newChannel
-		case *GuildVoiceChannel:
-			guild.VoiceChannels[newChannel.ID] = newChannel
-		}
+		newBaseChannel(guild.state, data).upgrade(guild)
 	}
 }
 
 func newGuild(state *clientState, data []byte) *Guild {
 	guild := &Guild{state: state, TextChannels: make(map[string]*GuildTextChannel), VoiceChannels: make(map[string]*GuildVoiceChannel)}
 	json.Unmarshal(data, guild)
-	private := &guildFactoryPrivate{}
+	state.Guilds[guild.ID] = guild
+	private := new(guildFactoryPrivate)
 	json.Unmarshal(data, private)
 	channelFactory(guild, private)
 	return guild
