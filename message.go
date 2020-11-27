@@ -1,6 +1,8 @@
 package disgopher
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 //ChannelMention ...
 type ChannelMention struct {
@@ -73,12 +75,19 @@ func mentionedGuildTextChannelsFactory(message *Message) {
 	}
 }
 
-func newMessage(state *clientState, data []byte) *Message {
+func newMessage(state *clientState, channelID string, guildID string, data []byte) *Message {
 	message := &Message{state: state}
 	json.Unmarshal(data, message)
-	message.Guild = state.Guilds[message.GuildID]
-	message.Channel = state.GuildTextChannels[message.ChannelID]
-	message.Guild = state.Guilds[message.GuildID]
+	if channelID != "" {
+		message.Channel = state.GuildTextChannels[channelID]
+	} else {
+		message.Channel = state.GuildTextChannels[message.ChannelID]
+	}
+	if guildID != "" {
+		message.Guild = state.Guilds[guildID]
+	} else {
+		message.Guild = state.Guilds[message.GuildID]
+	}
 	private := new(messagePrivate)
 	json.Unmarshal(data, private)
 	if message.WebhookID == "" {
