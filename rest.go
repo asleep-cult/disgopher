@@ -63,6 +63,7 @@ func (httpSession *HTTPSession) request(req *http.Request, bucketPath string) (*
 	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", httpSession.Token))
 	req.Header.Add("X-Ratelimit-Precision", "millisecond")
 	if httpSession.globallyRatelimited {
+		fmt.Println("Global Ratelimit!")
 		httpSession.globalRatelimitMutex.Lock()
 		httpSession.globalRatelimitMutex.Unlock()
 	}
@@ -83,7 +84,7 @@ func (httpSession *HTTPSession) request(req *http.Request, bucketPath string) (*
 				httpSession.globallyRatelimited = true
 				httpSession.globalRatelimitMutex.Lock()
 			}
-			time.Sleep(time.Duration(ratelimit.RetryAfter*1000) * time.Millisecond)
+			time.Sleep(time.Duration(ratelimit.RetryAfter/1000) * time.Second)
 			bucket.ratelimited = false
 			if ratelimit.Global {
 				httpSession.globallyRatelimited = false

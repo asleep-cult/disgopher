@@ -22,6 +22,17 @@ func (client *Client) On(name string, function interface{}) {
 	client.State.registerEvent(name, function)
 }
 
+//FetchChannel ...
+func (client *Client) FetchChannel(channelID string) (interface{}, error) {
+	data, err := client.http.getChannel(channelID)
+	var channel interface{}
+	if err == nil {
+		base := newBaseChannel(client.State, data)
+		channel = base.upgrade()
+	}
+	return channel, err
+}
+
 //NewClient ...
 func NewClient() Client {
 	state := &clientState{
