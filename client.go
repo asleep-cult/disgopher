@@ -32,10 +32,12 @@ func NewClient() Client {
 		Users:              make(map[string]*User),
 		Events:             make(map[string][]interface{})}
 	gateway := newGateway(state)
-	rest := &HTTPSession{
+	http := &HTTPSession{
 		state:                state,
 		ratelimitBuckets:     make(map[string]*ratelimitBucket),
 		globalRatelimitMutex: new(sync.Mutex)}
-	client := Client{Ws: gateway, State: state, http: rest}
+	state.Gateway = gateway
+	state.HTTP = http
+	client := Client{Ws: gateway, State: state, http: http}
 	return client
 }

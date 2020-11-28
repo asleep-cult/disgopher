@@ -67,6 +67,16 @@ type GuildTextChannel struct {
 	GuildID       string `json:"guild_id"`
 }
 
+//Send ...
+func (channel *GuildTextChannel) Send(req *MessageCreateRequest) (*Message, error) {
+	data, err := channel.state.HTTP.messageCreate(channel.ID, req)
+	var message *Message
+	if err == nil {
+		message = newMessage(channel.state, channel.ID, channel.Guild.ID, data)
+	}
+	return message, err
+}
+
 func newGuildTextChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *GuildTextChannel {
 	channel := &GuildTextChannel{state: baseChannel.state, ID: baseChannel.ID, Type: baseChannel.Type}
 	json.Unmarshal(data, channel)
