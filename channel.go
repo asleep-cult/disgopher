@@ -68,10 +68,12 @@ type GuildTextChannel struct {
 }
 
 //Send ...
-func (channel *GuildTextChannel) Send(content string) (*Message, error) {
-	req := &messageCreateRequest{Content: content}
+func (channel *GuildTextChannel) Send(req *MessageCreateRequest) (*Message, error) {
 	data, err := channel.state.HTTP.messageCreate(channel.ID, req)
-	message := newMessage(channel.state, channel.ID, channel.Guild.ID, data)
+	var message *Message
+	if err == nil {
+		message = newMessage(channel.state, channel.ID, channel.Guild.ID, data)
+	}
 	return message, err
 }
 

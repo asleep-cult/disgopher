@@ -32,13 +32,13 @@ type Message struct {
 	Author          *User        `json:"-"`
 	Content         string       `json:"content"`
 	EditedTimestamp string       `json:"edited_timestamp"`
-	//Embeds []Embed
+	Embeds          []*Embed     `json:"embeds"`
 	Flags           int          `json:"flags"`
 	ID              string       `json:"id"`
 	Member          *GuildMember `json:"-"`
 	MentionEveryone bool         `json:"mention_everyone"`
 	//MentionRoles []Role `json:"mention_roles"`
-	MentionedChannelsRaw       []ChannelMention    `json:"mention_channels"`
+	MentionedChannelsRaw       []*ChannelMention   `json:"mention_channels"`
 	MentionedGuildTextChannels []*GuildTextChannel `json:"-"`
 	//Mentions []GuildMember? `json:"mentions"`
 	Nonce  interface{} `json:"nonce"`
@@ -60,7 +60,6 @@ type Message struct {
 type messagePrivate struct {
 	Author *User        `json:"author"`
 	Member *GuildMember `json:"member"`
-	//TODO: Add Member
 }
 
 func mentionedGuildTextChannelsFactory(message *Message) {
@@ -94,9 +93,6 @@ func newMessage(state *clientState, channelID string, guildID string, data []byt
 		message.Author = state.Users[private.Author.ID]
 		message.Member = message.Guild.Members[private.Author.ID]
 		if message.Author == nil {
-			message.Author = message.Member.User
-		}
-		if message.Author == nil {
 			userData, _ := json.Marshal(private.Author)
 			message.Author = newUser(state, userData)
 		}
@@ -108,4 +104,64 @@ func newMessage(state *clientState, channelID string, guildID string, data []byt
 	mentionedGuildTextChannelsFactory(message)
 	state.Messages[message.ID] = message
 	return message
+}
+
+//EmbedField ...
+type EmbedField struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Inline bool   `json:"inline"`
+}
+
+//EmbedAuthor ...
+type EmbedAuthor struct {
+	Name         string `json:"name,omitempty"`
+	URL          string `json:"string,omitempty"`
+	IconURL      string `json:"icon_url,omitempty"`
+	ProxyIconURL string `json:"proxy_icon_url,omitempty"`
+}
+
+//EmbedFooter ...
+type EmbedFooter struct {
+	Text         string `json:"text"`
+	IconURL      string `json:"icon_url,omitempty"`
+	ProxyIconURL string `json:"proxy_icon_url,omitempty"`
+}
+
+//EmbedAttachment ...
+type EmbedAttachment struct {
+	URL      string `json:"url,omitempty"`
+	ProxyURL string `json:"proxy_url,omitempty"`
+	Height   int    `json:"height,omitempty"`
+	Witch    int    `json:"width,omitempty"`
+}
+
+//EmbedProvider ...
+type EmbedProvider struct {
+	Name string `json:"string,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
+//Embed ...
+type Embed struct {
+	Title       string           `json:"title,omitempty"`
+	Type        string           `json:"type,omitempty"`
+	Description string           `json:"description,omitempty"`
+	URL         string           `json:"url,omitempty"`
+	Timestamp   string           `json:"timestamp,omitempty"`
+	Color       int              `json:"color,omitempty"`
+	Footer      *EmbedFooter     `json:"footer,omitempty"`
+	Image       *EmbedAttachment `json:"image,omitempty"`
+	Thumbnail   *EmbedAttachment `json:"thumbnail,omitempty"`
+	Video       *EmbedAttachment `json:"video,omitempty"`
+	Provider    *EmbedProvider   `json:"provider,omitempty"`
+	Author      *EmbedAuthor     `json:"author,omitempty"`
+	Fields      []*EmbedField    `json:"fields,omitempty"`
+}
+
+//AddField ...
+func (embed *Embed) AddField(name string, value string, inline bool) *EmbedField {
+	field := &EmbedField{Name: name, Value: value, Inline: inline}
+	embed.Fields = append(embed.Fields, field)
+	return field
 }

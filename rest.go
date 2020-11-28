@@ -1,17 +1,17 @@
 package disgopher
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
 
-const baseURL = "https://discord.com/api/v7/channels"
+const baseURL = "https://discord.com/api/v7"
 
 //HTTPError ...
 type HTTPError struct {
@@ -22,7 +22,7 @@ type HTTPError struct {
 
 //Error ...
 func (err *HTTPError) Error() string {
-	return fmt.Sprintf("HTTPError [Status Code: %s]: %s", fmt.Sprint(err.HTTPStatusCode), err.Message)
+	return fmt.Sprintf("HTTPError [HTTP Status Code: %s, Code: %s]: %s", fmt.Sprint(err.HTTPStatusCode), fmt.Sprint(err.Code), err.Message)
 }
 
 //HTTPSession ...
@@ -117,31 +117,81 @@ func (httpSession *HTTPSession) request(req *http.Request, bucketPath string) (*
 			return resp, data, nil
 		}
 		actualerr := &HTTPError{HTTPStatusCode: resp.StatusCode}
-		json.Unmarshal(data, err)
+		json.Unmarshal(data, actualerr)
 		return resp, data, actualerr
 	}
 	return nil, make([]byte, 1), nil
 }
 
-type messageCreateRequest struct {
+func (httpSession *HTTPSession) getChannel(channelID string) ([]byte, error) {
+	path := fmt.Sprintf("%s/cahnnels/%s", baseURL, channelID)
+	bucketPath := fmt.Sprintf("GET-channels/%s", channelID)
+	httpreq, _ := http.NewRequest("GET", path, nil)
+	_, data, err := httpSession.request(httpreq, bucketPath)
+	return data, err
+}
+
+func (httpSession *HTTPSession) modifyChannel(channelID string, req interface{}) ([]byte, error) {
+	path := fmt.Sprintf("%s/channels/%s", baseURL, channelID)
+	bucketPath := fmt.Sprintf("PATCH-channels/%s", channelID)
+	data, _ := json.Marshal(req)
+	httpreq, _ := http.NewRequest(
+		"PATCH",
+		path,
+		bytes.NewBuffer(data))
+	_, respdata, err := httpSession.request(httpreq, bucketPath)
+	return respdata, err
+}
+
+func (httpSession *HTTPSession) deleteChannel(channelID string) ([]byte, error) {
+	path := fmt.Sprintf("%s/channels/%s", baseURL, channelID)
+	bucketPath := "DELETE-channels" //I'm 99% sure this has no major params??
+	httpreq, _ := http.NewRequest(
+		"DELETE",
+		path,
+		nil)
+	_, respdata, err := httpSession.request(httpreq, bucketPath)
+	return respdata, err
+}
+
+//getMessage
+
+//MessageCreateRequest ...
+type MessageCreateRequest struct {
 	Content string      `json:"content"`
 	Nonce   interface{} `json:"nonce"`
 	TTS     bool        `json:"tts"`
 	//File
-	//Embed
+	Embed *Embed `json:"embed,omitempty"`
 	//PayloadJSON
 	//AllowedMentions
 	//MessageReference
 }
 
-func (httpSession *HTTPSession) messageCreate(channelID string, req *messageCreateRequest) ([]byte, error) {
-	path := fmt.Sprintf("%s/%s/messages", baseURL, channelID)
-	bucketPath := fmt.Sprintf("POST-%s", channelID)
+func (httpSession *HTTPSession) messageCreate(channelID string, req *MessageCreateRequest) ([]byte, error) {
+	path := fmt.Sprintf("%s/channels/%s/messages", baseURL, channelID)
+	bucketPath := fmt.Sprintf("POST-%s/messages", channelID)
 	data, _ := json.Marshal(req)
 	httpreq, _ := http.NewRequest(
 		"POST",
 		path,
-		strings.NewReader(string(data)))
-	_, data, err := httpSession.request(httpreq, bucketPath)
-	return data, err
+		bytes.NewBuffer(data))
+	_, respdata, err := httpSession.request(httpreq, bucketPath)
+	return respdata, err
 }
+
+//crossPostMessage
+
+//createReaction
+
+//deleteReaction
+
+//getReactions
+
+//deleteAllReactions
+
+//deleteAllReactionsForEmoji
+
+//editMessage (Needs to be treated like modifyChannel)
+
+//more endpoints i dont feel like dealing with
