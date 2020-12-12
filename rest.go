@@ -146,7 +146,7 @@ func (httpSession *HTTPSession) modifyChannel(channelID string, req interface{})
 
 func (httpSession *HTTPSession) deleteChannel(channelID string) ([]byte, error) {
 	path := fmt.Sprintf("%s/channels/%s", baseURL, channelID)
-	bucketPath := "DELETE-channels" //I'm 99% sure this has no major params??
+	bucketPath := fmt.Sprintf("DELETE-channels/%s", channelID)
 	httpreq, _ := http.NewRequest(
 		"DELETE",
 		path,

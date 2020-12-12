@@ -22,6 +22,24 @@ func (state *clientState) dispatch(name string, data []byte) {
 		}
 	case "CHANNEL_CREATE":
 		newBaseChannel(state, data).upgrade()
+	case "CHANNEL_UPDATE":
+		dummyChannel := newBaseChannel(state, data)
+		var channel interface{}
+		channel = state.GuildTextChannels[dummyChannel.ID]
+		if channel == nil {
+			channel = state.GuildVoiceChannels[dummyChannel.ID]
+		}
+		switch chann := channel.(type) {
+		case *GuildTextChannel:
+			if chann.Type == dummyChannel.Type {
+				chann.update(data)
+			} else { //for conversion between Text and News
+				delete(state.GuildTextChannels, dummyChannel.ID)
+				dummyChannel.upgrade()
+			}
+		case *GuildVoiceChannel:
+			chann.update(data)
+		}
 	case "MESSAGE_CREATE":
 		message := newMessage(state, "", "", data)
 		event := MessageCreateEvent{Message: message}

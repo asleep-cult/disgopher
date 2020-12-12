@@ -56,7 +56,7 @@ type GuildTextChannel struct {
 	Guild    *Guild `json:"-"`
 	Type     int    `json:"type"`
 	Topic    string `json:"topic"`
-	Cooldown int    `json:"ratelimit_per_user"`
+	SlowMode int    `json:"ratelimit_per_user"`
 	Position int    `json:"position"`
 	//PremissionOverwrites []PermissionOverwrite `json:"permission_overwrites"`
 	ParentID      string   `json:"parent_id"`
@@ -78,78 +78,91 @@ func (channel *GuildTextChannel) Send(req *MessageCreateRequest) (*Message, erro
 	return message, err
 }
 
+type channelNameUpdateReq struct {
+	Name string `json:"name"`
+}
+
 //SetName ...
 func (channel *GuildTextChannel) SetName(name string) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			Name string `json:"name"`
-		}{name})
+		channelNameUpdateReq{name})
 	if err == nil {
 		channel.update(data)
 	}
 	return err
+}
+
+type channelTypeUpdateReq struct {
+	Type int `json:"type"`
 }
 
 //SetType ...
 func (channel *GuildTextChannel) SetType(channelType int) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			Type int `json:"type"`
-		}{channelType})
+		channelTypeUpdateReq{channelType})
 	if err == nil {
 		channel.update(data)
 	}
 	return err
+}
+
+type channelPositionUpdateReq struct {
+	Position int `json:"position"`
 }
 
 //SetPosition ...
 func (channel *GuildTextChannel) SetPosition(position int) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			Position int `json:"position"`
-		}{position})
+		channelPositionUpdateReq{position})
 	if err == nil {
 		channel.update(data)
 	}
 	return err
+}
+
+type channelTopicUpdateReq struct {
+	Topic string `json:"topic"`
 }
 
 //SetTopic ...
 func (channel *GuildTextChannel) SetTopic(topic string) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			Topic string `json:"topic"`
-		}{topic})
+		channelTopicUpdateReq{topic})
 	if err == nil {
 		channel.update(data)
 	}
+
 	return err
+}
+
+type channelNSFWUpdateReq struct {
+	NSFW bool `json:"nsfw"`
 }
 
 //SetNSFW ...
 func (channel *GuildTextChannel) SetNSFW(nsfw bool) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			NSFW bool `json:"nsfw"`
-		}{nsfw})
+		channelNSFWUpdateReq{nsfw})
 	if err == nil {
 		channel.update(data)
 	}
 	return err
 }
 
-//SetCooldown ...
-func (channel *GuildTextChannel) SetCooldown(cooldown int) error {
+type channelSlowModeUpdateReq struct {
+	SlowMode int `json:"ratelimit_per_user"`
+}
+
+//SetSlowMode ...
+func (channel *GuildTextChannel) SetSlowMode(cooldown int) error {
 	data, err := channel.state.HTTP.modifyChannel(
 		channel.ID,
-		struct {
-			Cooldown int `json:"cooldown"`
-		}{cooldown})
+		channelSlowModeUpdateReq{cooldown})
 	if err == nil {
 		channel.update(data)
 	}
@@ -201,4 +214,8 @@ func newGuildVoiceChannel(baseChannel *ChannelBase, guild *Guild, data []byte) *
 	channel.state.GuildVoiceChannels[channel.ID] = channel
 	channel.Guild.VoiceChannels[channel.ID] = channel
 	return channel
+}
+
+func (channel *GuildVoiceChannel) update(data []byte) {
+	json.Unmarshal(data, channel)
 }
